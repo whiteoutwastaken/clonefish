@@ -1,0 +1,23 @@
+*.mp4
+*.mp3
+*.wav
+*.png
+*.jpg
+*.jpeg
+*.mov
+*.mkv
+**/Adobe Premiere Pro Audio Previews/
+**/Adobe Premiere Pro Auto-Save/
+*.prproj
+*.index
+*.pth
+*.zip
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+#pycache
+__pycache__/
+orpheus-tts-local/
