@@ -1,17 +1,41 @@
-from tools.input import AudioInput
-import numpy as np
+import subprocess
+import time
+import sys
 
-mic = AudioInput()
-mic.start()
+
+sound_input_python = (
+    r"C:\Users\whiteout\miniconda3\envs\sound-input\python.exe"
+)
+
+rvc_python = (
+    r"C:\Users\whiteout\miniconda3\envs\rvc\python.exe"
+)
+
+input_process = subprocess.Popen(
+    [
+        sound_input_python,
+        "-m",
+        "tools.input"
+    ]
+)
+
+
+time.sleep(1)
+
+
+rvc_process = subprocess.Popen(
+    [
+        rvc_python,
+        "-m",
+        "tools.rvc"
+    ]
+)
+
 
 try:
-    while True:
-        audio = mic.read()
-
-        print(
-            "RMS:",
-            np.sqrt(np.mean(audio ** 2))
-        )
+    input_process.wait()
+    rvc_process.wait()
 
 except KeyboardInterrupt:
-    mic.stop()
+    input_process.terminate()
+    rvc_process.terminate()
