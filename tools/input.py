@@ -1,37 +1,47 @@
 import sounddevice as sd
 import numpy as np
 from collections import deque
-from queue import Queue
-import threading
-
+import zmq
 
 SAMPLE_RATE = 48000
 
-WINDOW_MS = 320
-STEP_MS = 50
+INPUT_DEVICE = 44  # or whichever index matches your actual mic
+
+# Raised from 320/50 - the RVC worker's steady-state process()
+# cost measured ~330-350ms per call (see test_rvc.py), so a 50ms
+# hop meant the worker fell further behind with every chunk.
+# WINDOW_MS is kept equal to STEP_MS (no overlap) since output.py
+# currently plays whatever it receives untrimmed - overlapping
+# windows would mean hearing duplicated audio at each boundary
+# until a crossfade/trim step exists on the output side.
+WINDOW_MS = 500
+STEP_MS = 500
 
 WINDOW_SAMPLES = int(SAMPLE_RATE * WINDOW_MS / 1000)
 STEP_SAMPLES = int(SAMPLE_RATE * STEP_MS / 1000)
 
 
 class AudioInput:
-    """
-    Real-time microphone input.
-
-    Produces overlapping audio windows:
-        - Window size: 320ms
-        - Step size: 50ms
-
-    Output:
-        numpy.ndarray(float32)
-        Shape: (WINDOW_SAMPLES,)
-    """
 
     def __init__(self):
-        self.queue = Queue(maxsize=10)
 
         self.buffer = deque(
             maxlen=WINDOW_SAMPLES
+        )
+
+        # -----------------------------------
+        # ZeroMQ
+        # -----------------------------------
+
+        self.context = zmq.Context()
+
+        self.socket = self.context.socket(
+            zmq.PUSH
+        )
+
+        # Sends audio to the RVC process
+        self.socket.bind(
+            "tcp://127.0.0.1:5555"
         )
 
         self.running = False
@@ -39,31 +49,29 @@ class AudioInput:
 
 
     def _callback(self, indata, frames, time_info, status):
-        if status:
-            print("Audio status:", status)
 
-        # Convert mono microphone input
+        if status:
+            print(status)
+
         samples = indata[:, 0].copy()
 
         self.buffer.extend(samples)
 
-        # Only emit when enough samples exist
-        if len(self.buffer) == WINDOW_SAMPLES:
+        if len(self.buffer) != WINDOW_SAMPLES:
+            return
 
-            window = np.asarray(
-                self.buffer,
-                dtype=np.float32
-            )
+        window = np.asarray(
+            self.buffer,
+            dtype=np.float32
+        )
 
-            # Prevent queue buildup
-            if not self.queue.full():
-                self.queue.put(window)
+        # Send raw bytes
+        self.socket.send(
+            window.tobytes()
+        )
 
 
     def start(self):
-        """
-        Start microphone capture.
-        """
 
         if self.running:
             return
@@ -75,61 +83,42 @@ class AudioInput:
             channels=1,
             blocksize=STEP_SAMPLES,
             dtype="float32",
+            device=INPUT_DEVICE,
             callback=self._callback
         )
 
         self.stream.start()
 
         print(
-            f"Input started "
-            f"({WINDOW_MS}ms window / {STEP_MS}ms step)"
+            f"Input started ({WINDOW_MS} ms / {STEP_MS} ms)"
         )
 
 
-    def read(self):
-        """
-        Get the newest audio window.
-
-        Blocks until audio is available.
-        """
-
-        return self.queue.get()
-
-
     def stop(self):
-        """
-        Stop microphone capture.
-        """
 
         self.running = False
 
         if self.stream:
             self.stream.stop()
             self.stream.close()
-            self.stream = None
+
+        self.socket.close()
+        self.context.term()
 
 
 if __name__ == "__main__":
-    """
-    Simple input test.
-    """
 
     import time
 
     mic = AudioInput()
+
     mic.start()
 
     try:
-        while True:
-            audio = mic.read()
 
-            print(
-                "Received:",
-                len(audio),
-                "samples",
-                f"({len(audio)/SAMPLE_RATE*1000:.1f}ms)"
-            )
+        while True:
+            time.sleep(1)
 
     except KeyboardInterrupt:
+
         mic.stop()
-        print("Stopped")
