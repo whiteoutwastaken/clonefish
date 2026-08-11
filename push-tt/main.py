@@ -33,8 +33,8 @@ import keyboard
 RVC_PYTHON = r"C:\Users\whiteout\miniconda3\envs\rvc\python.exe"
 RVC_WORKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rvc_worker.py")
 
-MODEL_PATH = r"C:\Users\whiteout\Documents\Projects\clonefish\models\shylily\shylily.pth"
-INDEX_PATH = r"C:\Users\whiteout\Documents\Projects\clonefish\models\shylily\shylily.index"   # or None
+MODEL_PATH = r"C:\Users\whiteout\Documents\Projects\clonefish\models\egirl/egirl.pth"
+INDEX_PATH = r"C:\Users\whiteout\Documents\Projects\clonefish\models\egirl/egirl.index"   # or None
 RVC_DEVICE = "cuda:0"
 F0_METHOD = "rmvpe"
 
