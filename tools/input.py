@@ -2,10 +2,11 @@ import sounddevice as sd
 import numpy as np
 from collections import deque
 import zmq
+from . import config
 
-SAMPLE_RATE = 48000
+SAMPLE_RATE = config.SAMPLE_RATE
 
-INPUT_DEVICE = 44  # or whichever index matches your actual mic
+INPUT_DEVICE = config.INPUT_DEVICE  # or whichever index matches your actual mic
 
 # Raised from 320/50 - the RVC worker's steady-state process()
 # cost measured ~330-350ms per call (see test_rvc.py), so a 50ms
@@ -46,6 +47,8 @@ class AudioInput:
 
         self.running = False
         self.stream = None
+        self._input_channels = config.get_input_channels(config.INPUT_DEVICE)
+        print(f"[input] device reports {self._input_channels} input channel(s)", flush=True)
 
 
     def _callback(self, indata, frames, time_info, status):
@@ -80,7 +83,7 @@ class AudioInput:
 
         self.stream = sd.InputStream(
             samplerate=SAMPLE_RATE,
-            channels=1,
+            channels=self._input_channels,
             blocksize=STEP_SAMPLES,
             dtype="float32",
             device=INPUT_DEVICE,

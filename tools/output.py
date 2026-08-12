@@ -2,11 +2,11 @@ import sounddevice as sd
 import numpy as np
 import zmq
 import queue
+from . import config
 
+SAMPLE_RATE = config.SAMPLE_RATE
 
-SAMPLE_RATE = 48000
-
-OUTPUT_DEVICE = 29
+OUTPUT_DEVICE = config.OUTPUT_DEVICE
 
 
 class AudioOutput:
@@ -19,7 +19,7 @@ class AudioOutput:
 
         self.stream = sd.OutputStream(
             samplerate=SAMPLE_RATE,
-            channels=1,
+            channels=config.get_input_channels(OUTPUT_DEVICE),
             dtype="float32",
             device=OUTPUT_DEVICE,
             latency="low",

@@ -17,6 +17,52 @@ SAMPLE_RATE = 48000
 INPUT_DEVICE = None   # your mic, sounddevice index. None = OS default.
 OUTPUT_DEVICE = None  # your headset, sounddevice index. None = OS default.
 
+
+def get_input_channels(device=INPUT_DEVICE):
+    """Query the actual channel count the device supports for input,
+    instead of assuming 1. Falls back to the OS default input device
+    when device is None.
+
+    sounddevice is imported lazily here (not at module scope) because
+    config.py is shared across conda envs - rvc.py's env has no
+    sounddevice installed and never needs this function."""
+
+    import sounddevice as sd
+
+    info = sd.query_devices(device, kind="input")
+    channels = info["max_input_channels"]
+
+    if channels < 1:
+        raise RuntimeError(
+            f"Selected input device ({device!r}) reports "
+            f"{channels} input channels: {info['name']!r}"
+        )
+
+    return channels
+
+
+def get_output_channels(device=OUTPUT_DEVICE):
+    """Query the actual channel count the device supports for output,
+    instead of assuming 1. Falls back to the OS default output device
+    when device is None.
+
+    sounddevice is imported lazily here for the same reason as
+    get_input_channels above."""
+
+    import sounddevice as sd
+
+    info = sd.query_devices(device, kind="output")
+    channels = info["max_output_channels"]
+
+    if channels < 1:
+        raise RuntimeError(
+            f"Selected output device ({device!r}) reports "
+            f"{channels} output channels: {info['name']!r}"
+        )
+
+    return channels
+
+
 # --------------------------------------------------
 # Windowing
 #

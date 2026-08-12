@@ -8,7 +8,7 @@ Output:
     ZeroMQ stream of converted float32 audio arrays (48kHz)
 
 Architecture:
-
+import
 input.py
     |
     | tcp://127.0.0.1:5555
@@ -31,7 +31,7 @@ import numpy as np
 import librosa
 import torch
 import zmq
-
+from . import config
 
 # --------------------------------------------------
 # PyTorch 2.6+ compatibility
@@ -398,7 +398,7 @@ class RVCStream:
 
                 times,
 
-                0,                      # pitch shift
+                config.PITCH_SHIFT_SEMITONES,                      # pitch shift
 
                 model.f0method,
 
@@ -493,7 +493,7 @@ def run_worker():
 
 
     rvc = RVCStream(
-        "shylily"
+        "egirl"
     )
 
 
