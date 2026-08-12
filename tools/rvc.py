@@ -32,6 +32,11 @@ import librosa
 import torch
 import zmq
 from . import config
+import torchaudio
+
+_RESAMPLER_CACHE = {}
+_RESAMPLER_LOCK = threading.Lock()
+
 
 # --------------------------------------------------
 # PyTorch 2.6+ compatibility
@@ -80,7 +85,34 @@ _MODEL_CACHE = {}
 
 _MODEL_LOCK = threading.Lock()
 
+def _get_resampler(orig_sr, target_sr, device):
+    """Cached torchaudio resampler - building the sinc filter is real
+    cost, so this must not happen on every process() call."""
 
+    key = (orig_sr, target_sr, device)
+
+    with _RESAMPLER_LOCK:
+        if key not in _RESAMPLER_CACHE:
+            _RESAMPLER_CACHE[key] = torchaudio.transforms.Resample(
+                orig_freq=orig_sr,
+                new_freq=target_sr
+            ).to(device)
+        return _RESAMPLER_CACHE[key]
+
+
+def _resample_gpu(audio_np, orig_sr, target_sr, device):
+    """Drop-in replacement for librosa.resample that stays on-device."""
+
+    if orig_sr == target_sr:
+        return audio_np
+
+    resampler = _get_resampler(orig_sr, target_sr, device)
+
+    with torch.no_grad():
+        tensor = torch.from_numpy(audio_np).to(device, dtype=torch.float32)
+        out = resampler(tensor)
+
+    return out.cpu().numpy()
 
 def _find_model_files(model_name):
 
@@ -145,7 +177,6 @@ def _load_model(model_name):
             else "cpu"
         )
 
-
         print(
             "Loading RVC:",
             model_name,
@@ -156,6 +187,8 @@ def _load_model(model_name):
         rvc = RVCInference(
             device=device
         )
+
+        rvc.device = device
 
         # Real-time-friendly f0 estimator.
         # "harvest" (the library default) is CPU-bound and far too slow
@@ -242,6 +275,8 @@ class RVCStream:
             dtype=np.float32
         )
 
+        self.device = self.model.device
+
         self._hangover_remaining = 0
 
 
@@ -285,13 +320,7 @@ class RVCStream:
         # were 16kHz.
         # --------------------------------------------------
         if input_sample_rate != 16000:
-
-            audio_16k_new = librosa.resample(
-                audio,
-                orig_sr=input_sample_rate,
-                target_sr=16000
-            )
-
+            audio_16k_new = _resample_gpu(audio, input_sample_rate, 16000, self.device)
         else:
 
             audio_16k_new = audio
@@ -471,12 +500,7 @@ class RVCStream:
 
         if tgt_sr != output_sample_rate:
 
-            output_float = librosa.resample(
-                output_float,
-                orig_sr=tgt_sr,
-                target_sr=output_sample_rate
-            )
-
+            output_float = _resample_gpu(output_float, tgt_sr, output_sample_rate, self.device)
 
         return output_float
 
