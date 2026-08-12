@@ -39,7 +39,7 @@ RVC_DEVICE = "cuda:0"
 F0_METHOD = "rmvpe"
 
 # Voice quality / pitch tuning — see rvc_worker.py for what each does.
-PITCH_SHIFT = 15        # semitones, + = higher pitch, - = lower. e.g. 4 for a noticeably higher voice
+PITCH_SHIFT = 12        # semitones, + = higher pitch, - = lower. e.g. 4 for a noticeably higher voice
 INDEX_RATE = 0.5        # 0-1, how much of the target voice's real timbre to pull from the index
 PROTECT = 0.15          # 0-0.5, protects consonants/breath from artifacting
 FILTER_RADIUS = 3       # >=3 enables median filtering on pitch, smooths jitter
