@@ -13,6 +13,8 @@
 *.pth
 *.zip
 
+*.patch
+
 # Virtual environment
 venv/
 .venv/

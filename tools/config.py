@@ -121,3 +121,17 @@ DEFAULT_RVC_TO_OUTPUT_PORT = 5556
 
 def get_port(env_name, default):
     return int(os.environ.get(env_name, default))
+
+# --------------------------------------------------
+# Silence gate
+#
+# Below this peak amplitude (raw 48kHz), a window is treated as
+# silence and skipped. HANGOVER_PACKETS controls how many
+# subsequent windows stay "forced open" after a voiced window,
+# even if they individually measure below threshold - this stops
+# natural trailing-off speech (fading cadence) from getting cut
+# off mid-decay.
+# --------------------------------------------------
+
+SILENCE_THRESHOLD = 0.02
+HANGOVER_PACKETS = 1

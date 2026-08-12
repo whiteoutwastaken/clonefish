@@ -242,12 +242,14 @@ class RVCStream:
             dtype=np.float32
         )
 
+        self._hangover_remaining = 0
+
 
     def process(
         self,
         audio: np.ndarray,
-        input_sample_rate=48000,
-        output_sample_rate=48000
+        input_sample_rate=config.SAMPLE_RATE,
+        output_sample_rate=config.SAMPLE_RATE
     ):
 
         """
@@ -301,29 +303,26 @@ class RVCStream:
         # audio so that when real speech resumes, the next call's
         # left-context is recent silence, not stale speech.
         # --------------------------------------------------
-        is_silent = (
-            np.abs(audio).max() < SILENCE_THRESHOLD
-        )
+        measured_silent = np.abs(audio).max() < config.SILENCE_THRESHOLD
+
+        if not measured_silent:
+            # Genuinely voiced - open the gate for this window and
+            # arm the hangover for however many quiet windows follow.
+            is_silent = False
+            self._hangover_remaining = config.HANGOVER_PACKETS
+
+        elif self._hangover_remaining > 0:
+            # Measured quiet, but still within the hangover window
+            # from a recent voiced packet - keep it open.
+            is_silent = False
+            self._hangover_remaining -= 1
+            print(f"[rvc] hangover: forcing non-silent ({self._hangover_remaining} remaining)", flush=True)
+
+        else:
+            is_silent = True
 
         if is_silent:
-
-            if len(audio_16k_new) >= CONTEXT_SAMPLES_16K:
-
-                self._context_16k = audio_16k_new[-CONTEXT_SAMPLES_16K:]
-
-            else:
-
-                self._context_16k = np.concatenate([
-                    self._context_16k[
-                        len(audio_16k_new):
-                    ],
-                    audio_16k_new
-                ])
-
-            return np.zeros(
-                int(len(audio) * output_sample_rate / input_sample_rate),
-                dtype=np.float32
-            )
+            return np.zeros(int(len(audio) * output_sample_rate / input_sample_rate), dtype=np.float32)
 
 
         # --------------------------------------------------
